@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestConfigOptions_SerializationRoundTrip locks the serialize/deserialize path

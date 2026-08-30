@@ -3,7 +3,7 @@ package interactive
 import (
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestResultProbeUsesLineCount guards the fl-filter bug: the probe rebuilt to

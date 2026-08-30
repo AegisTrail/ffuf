@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // captureStdout redirects os.Stdout to an in-memory pipe for the duration of

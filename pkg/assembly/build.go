@@ -8,12 +8,12 @@
 package assembly
 
 import (
-	"github.com/ffuf/ffuf/v2/pkg/engine"
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
-	"github.com/ffuf/ffuf/v2/pkg/input"
-	"github.com/ffuf/ffuf/v2/pkg/output"
-	"github.com/ffuf/ffuf/v2/pkg/runner"
-	"github.com/ffuf/ffuf/v2/pkg/scraper"
+	"github.com/AegisTrail/ffuf/v2/pkg/engine"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/input"
+	"github.com/AegisTrail/ffuf/v2/pkg/output"
+	"github.com/AegisTrail/ffuf/v2/pkg/runner"
+	"github.com/AegisTrail/ffuf/v2/pkg/scraper"
 )
 
 // BuildJob constructs and wires a Job from conf. It is the single source of truth

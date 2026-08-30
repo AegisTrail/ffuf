@@ -3,7 +3,7 @@ package filter
 import (
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // resp builds a minimal Response for the non-per-host match path (Request is only

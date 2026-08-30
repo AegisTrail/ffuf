@@ -28,7 +28,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 var updateGolden = flag.Bool("update-golden", false, "regenerate .golden characterization files")

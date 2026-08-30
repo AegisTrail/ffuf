@@ -5,8 +5,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
-	"github.com/ffuf/ffuf/v2/pkg/testtarget"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/testtarget"
 )
 
 // assertSet fails unless got equals want as a set. Both sides are sorted here, so

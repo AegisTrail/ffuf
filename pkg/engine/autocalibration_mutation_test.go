@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // stubRunner is a RunnerProvider whose calls fail. It is enough to drive

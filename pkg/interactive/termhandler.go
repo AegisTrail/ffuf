@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ffuf/ffuf/v2/pkg/engine"
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/engine"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 type interactive struct {

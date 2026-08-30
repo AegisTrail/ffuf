@@ -1,7 +1,7 @@
 package filter
 
 import (
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // FromConfig builds a MatcherManager from the parsed ConfigOptions. It is the pure,

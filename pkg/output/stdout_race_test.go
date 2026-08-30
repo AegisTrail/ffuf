@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestStdoutput_ConcurrentResult locks the fix for an unsynchronized append:

@@ -15,9 +15,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/assembly"
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
-	"github.com/ffuf/ffuf/v2/pkg/filter"
+	"github.com/AegisTrail/ffuf/v2/pkg/assembly"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/filter"
 )
 
 // TestMain points ffuf.SCRAPERDIR at an empty temp dir for the whole package.

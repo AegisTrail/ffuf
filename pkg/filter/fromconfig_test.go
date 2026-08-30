@@ -3,7 +3,7 @@ package filter
 import (
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestFromConfig_DefaultStatusMatcher covers the one behavior main used to drive

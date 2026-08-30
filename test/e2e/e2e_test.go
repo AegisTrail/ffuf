@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ffuf/ffuf/v2/pkg/testtarget"
+	"github.com/AegisTrail/ffuf/v2/pkg/testtarget"
 )
 
 // ffufBin is the binary built once for the whole package by TestMain.

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestPauseGate_ConcurrentIdempotent regresses C8: the pause gate used a

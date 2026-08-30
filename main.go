@@ -9,13 +9,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/ffuf/ffuf/v2/pkg/assembly"
-	"github.com/ffuf/ffuf/v2/pkg/engine"
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
-	"github.com/ffuf/ffuf/v2/pkg/filter"
-	"github.com/ffuf/ffuf/v2/pkg/input"
-	"github.com/ffuf/ffuf/v2/pkg/interactive"
-	"github.com/ffuf/ffuf/v2/pkg/runner"
+	"github.com/AegisTrail/ffuf/v2/pkg/assembly"
+	"github.com/AegisTrail/ffuf/v2/pkg/engine"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/filter"
+	"github.com/AegisTrail/ffuf/v2/pkg/input"
+	"github.com/AegisTrail/ffuf/v2/pkg/interactive"
+	"github.com/AegisTrail/ffuf/v2/pkg/runner"
 )
 
 // flagRegistry describes the registered flags for the segmented help output

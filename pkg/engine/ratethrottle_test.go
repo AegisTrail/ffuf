@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // TestNewRateThrottle_HugeRateNoPanic regresses P3: conf.Rate > 1000000 makes

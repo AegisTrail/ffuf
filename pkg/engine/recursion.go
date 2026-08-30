@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // recursionManager owns the recursion policy: deciding whether a matched response

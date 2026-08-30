@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 func TestRecursionManager_GreedyQueuesWithinDepth(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ffuf/ffuf/v2/pkg/ffuf"
+	"github.com/AegisTrail/ffuf/v2/pkg/ffuf"
 )
 
 // Job ties together Config, Runner, Input and Output
