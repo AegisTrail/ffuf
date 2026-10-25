@@ -35,6 +35,9 @@ type SimpleRunner struct {
 	config *ffuf.Config
 	client *http.Client
 	lanes  *lanePool
+	// autoPins maps a -preflight-var-auto *ffuf.VarExtract to the source its
+	// bare key first resolved to (see extractByName).
+	autoPins sync.Map
 }
 
 // preflightLane holds the variables extracted by a per-thread preflight chain.
@@ -103,11 +106,17 @@ func NewSimpleRunner(conf *ffuf.Config, replay bool) ffuf.RunnerProvider {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(conf.Timeout) * time.Second),
 		Transport: &http.Transport{
-			ForceAttemptHTTP2:   conf.Http2,
-			Proxy:               proxyURL,
-			MaxIdleConns:        1000,
-			MaxIdleConnsPerHost: 500,
-			MaxConnsPerHost:     500,
+			ForceAttemptHTTP2: conf.Http2,
+			Proxy:             proxyURL,
+			// Response headers are not covered by MAX_DOWNLOAD_SIZE, and Go's default
+			// ceiling is 10 MB. A hostile target could spend that on every response,
+			// and the headers are retained per response and copied into resp.Raw, the
+			// scraper's source string and the audit log. 1 MB is far above anything a
+			// real server sends (nginx and Apache cap a header line at 8 KB).
+			MaxResponseHeaderBytes: 1 << 20,
+			MaxIdleConns:           1000,
+			MaxIdleConnsPerHost:    500,
+			MaxConnsPerHost:        500,
 			DialContext: (&net.Dialer{
 				Timeout: time.Duration(time.Duration(conf.Timeout) * time.Second),
 			}).DialContext,
@@ -229,15 +238,39 @@ func (r *SimpleRunner) Execute(req *ffuf.Request) (resp ffuf.Response, err error
 	resp = ffuf.NewResponse(httpresp, req)
 	defer httpresp.Body.Close()
 
-	// Check if we should download the resource or not
-	size, err := strconv.Atoi(httpresp.Header.Get("Content-Length"))
-	if err == nil {
+	// Record the server-declared length first, so it is set before any early return
+	// below and the size filters still observe it.
+	if size, serr := strconv.Atoi(httpresp.Header.Get("Content-Length")); serr == nil {
 		resp.ContentLength = int64(size)
-		if (r.config.IgnoreBody) || (size > MAX_DOWNLOAD_SIZE) {
+		if size > MAX_DOWNLOAD_SIZE {
 			resp.Cancelled = true
 			return resp, nil
 		}
 	}
+
+	// -ignore-body has to hold regardless of framing. Keeping this check inside the
+	// Content-Length branch above meant it was silently skipped for chunked
+	// responses, which carry no Content-Length.
+	if r.config.IgnoreBody {
+		resp.Cancelled = true
+		return resp, nil
+	}
+
+	// Bound the body at the source, before anything reads it. The Content-Length
+	// guard above cannot fire when the header is absent, which is the case for
+	// chunked responses and for any response the transport transparently decoded,
+	// and httputil.DumpResponse below drains the entire body with no bound of its
+	// own.
+	//
+	// This does not replace the LimitReader further down, and which stream each of
+	// them bounds depends on the path. Where the transport decoded the body itself,
+	// both bound the same decompressed stream. Where Content-Encoding survived and
+	// we decode manually, this one bounds the compressed bytes and that one bounds
+	// what they expand to, so that case needs both.
+	httpresp.Body = struct {
+		io.Reader
+		io.Closer
+	}{io.LimitReader(httpresp.Body, int64(MAX_DOWNLOAD_SIZE)+1), httpresp.Body}
 
 	if len(r.config.OutputDirectory) > 0 || len(r.config.AuditLog) > 0 {
 		rawresp, _ := httputil.DumpResponse(httpresp, true)
@@ -266,6 +299,10 @@ func (r *SimpleRunner) Execute(req *ffuf.Request) (resp ffuf.Response, err error
 	limited := io.LimitReader(bodyReader, int64(MAX_DOWNLOAD_SIZE)+1)
 	if respbody, rerr := io.ReadAll(limited); rerr == nil {
 		if len(respbody) > MAX_DOWNLOAD_SIZE {
+			// The snapshot taken above holds a body truncated at the cap, which would
+			// be written out as a well-formed response that merely looks complete.
+			// Drop it rather than store a misleading artifact.
+			resp.Raw = ""
 			resp.Cancelled = true
 			return resp, nil
 		}
@@ -342,6 +379,10 @@ func (r *SimpleRunner) parsePreflightRequest(filename string, vars map[string]st
 	body, _ := io.ReadAll(reader)
 	body = bytes.TrimRight(body, "\r\n") // trim trailing newline editors add
 
+	// Record where the operator's own file says this request goes, before any
+	// captured value is substituted in.
+	authoredScheme, authoredHost := r.flightAuthority(path, host)
+
 	// Substitute known variables into method, path, headers, host and body, in a
 	// single deterministic pass.
 	if len(vars) > 0 {
@@ -352,6 +393,21 @@ func (r *SimpleRunner) parsePreflightRequest(filename string, vars map[string]st
 		host = rep.Replace(host)
 		for h, v := range headers {
 			headers[h] = rep.Replace(v)
+		}
+	}
+
+	// Captured values come from the scanned target, and flight requests carry the
+	// main configuration's headers, so letting a captured value pick the
+	// destination hands the target somewhere to send the operator's credentials.
+	// An operator-authored destination is untouched by this: it only fires when
+	// substitution is what moved the request, which is why comparing against the
+	// pre-substitution authority is the check rather than pinning to the target
+	// host. Discovery-driven flows that genuinely need the target to name the next
+	// host opt in with -preflight-anyhost.
+	if len(vars) > 0 && !r.config.PreflightAnyHost {
+		gotScheme, gotHost := r.flightAuthority(path, host)
+		if gotScheme != authoredScheme || gotHost != authoredHost {
+			return nil, fmt.Errorf("preflight %q: a captured variable changed the request destination from %s://%s to %s://%s; captured values come from the scanned target, so this is refused. Pass -preflight-anyhost if the target is meant to choose the destination", filename, authoredScheme, authoredHost, gotScheme, gotHost)
 		}
 	}
 
@@ -436,30 +492,52 @@ func (r *SimpleRunner) runPreflightChain(chain []ffuf.PreflightConfig, inheritVa
 			return nil, fmt.Errorf("preflight: reading response body from %q failed: %s", pf.RequestFile, err)
 		}
 
-		for _, ve := range pf.Vars {
-			// Reuse the regex compiled once at config time; fall back to compiling
-			// here only when a VarExtract was built outside ConfigFromOptions (tests).
-			re := ve.Compiled
-			if re == nil {
-				var cerr error
-				re, cerr = regexp.Compile(ve.Regex)
-				if cerr != nil {
+		fr := &flightResponse{body: body, header: resp.Header}
+		for j := range pf.Vars {
+			// A pointer into the config's slice: extractByName keys its auto pins on it.
+			ve := &pf.Vars[j]
+			var val string
+			if ve.Source != "" {
+				v, xerr := r.extractByName(ve, fr)
+				if xerr != nil {
 					if ignore {
-						log.Printf("preflight ignored invalid regex %q for var %s: %s", ve.Regex, ve.Name, cerr)
+						log.Printf("preflight: var %s not extracted from %q: %s", ve.Name, pf.RequestFile, xerr)
 						continue
 					}
-					return nil, fmt.Errorf("preflight: invalid regex %q for var %s: %s", ve.Regex, ve.Name, cerr)
+					return nil, fmt.Errorf("preflight: var %s not extracted from response of %q: %s", ve.Name, pf.RequestFile, xerr)
 				}
-			}
-			matches := re.FindSubmatch(body)
-			if len(matches) < 2 {
-				if ignore {
-					log.Printf("preflight: regex %q did not match var %s in response from %q", ve.Regex, ve.Name, pf.RequestFile)
-					continue
+				val = v
+			} else {
+				// Reuse the regex compiled once at config time; fall back to compiling
+				// here only when a VarExtract was built outside ConfigFromOptions (tests).
+				re := ve.Compiled
+				if re == nil {
+					var cerr error
+					re, cerr = regexp.Compile(ve.Regex)
+					if cerr != nil {
+						if ignore {
+							log.Printf("preflight ignored invalid regex %q for var %s: %s", ve.Regex, ve.Name, cerr)
+							continue
+						}
+						return nil, fmt.Errorf("preflight: invalid regex %q for var %s: %s", ve.Regex, ve.Name, cerr)
+					}
 				}
-				return nil, fmt.Errorf("preflight: regex %q did not capture var %s from response of %q", ve.Regex, ve.Name, pf.RequestFile)
+				// The body is searched first, so a regex that matched before headers
+				// were searched still captures the same text. Only a regex that finds
+				// nothing in the body gets to look at the headers.
+				matches := re.FindSubmatch(body)
+				if len(matches) < 2 {
+					matches = re.FindSubmatch(fr.headerBlock())
+				}
+				if len(matches) < 2 {
+					if ignore {
+						log.Printf("preflight: regex %q did not match var %s in the body or headers of the response from %q", ve.Regex, ve.Name, pf.RequestFile)
+						continue
+					}
+					return nil, fmt.Errorf("preflight: regex %q did not capture var %s from the body or headers of the response of %q", ve.Regex, ve.Name, pf.RequestFile)
+				}
+				val = string(matches[1])
 			}
-			val := string(matches[1])
 			// The captured value comes from the scanned target (untrusted). Reject
 			// control characters: they can't legally go into a URL/header and would
 			// otherwise corrupt or fail the outgoing request (defense in depth).
@@ -502,6 +580,27 @@ func varsReplacer(vars map[string]string) *strings.Replacer {
 }
 
 // hostOf returns the authority (host[:port]) of a URL, or "" if it cannot be parsed.
+// flightAuthority reports the scheme and host a flight request would be sent to,
+// given the request-line path and Host header from its file. It mirrors the URL
+// construction below, so the two stay in step.
+func (r *SimpleRunner) flightAuthority(path, host string) (scheme, authority string) {
+	if strings.HasPrefix(path, "http") {
+		u, err := url.Parse(path)
+		if err != nil {
+			return "", ""
+		}
+		return u.Scheme, u.Host
+	}
+	scheme = "https"
+	if u, uerr := url.Parse(r.config.Url); uerr == nil && u.Scheme != "" {
+		scheme = u.Scheme
+		if host == "" {
+			host = u.Host
+		}
+	}
+	return scheme, host
+}
+
 func hostOf(rawurl string) string {
 	u, err := url.Parse(rawurl)
 	if err != nil {

@@ -1,14 +1,43 @@
 ## Changelog
 - master
   - New
-    - Added audit logging functionality
+    - Added `-preflight-var-auto` and `-postflight-var-auto`, which capture a value by name instead of by regex. `NAME:key` looks for `key` as a form field, a meta tag, a cookie in any `Set-Cookie` header, and a response header, in that order, and pins the first source it finds. `NAME:[form]key`, `[meta]`, `[cookie]` and `[header]` pick the source explicitly. Form values are HTML-entity decoded. A key present in two sources with different values is refused rather than guessed. Config files take the same as `source` and `key` on a var
+  - Changed
+    - The test suite now passes on Windows. The help golden test drained its capture pipe only after the whole help output had been written, and that output is larger than a Windows pipe buffer, so the write blocked with nothing reading the other end. The audit logger test removed a file it still held open, which Windows refuses. Two color tests compared output against `ANSI_CLEAR`, which is empty on Windows, and every string contains the empty string
+    - Allow wordlist entries up to 512 KiB instead of the scanner's 64 KiB default
+    - `-preflight-var` and `-postflight-var` regexes that find nothing in the response body are now also run against the response headers, one `Name: value` line per value with canonical names, so a token in a header or in a later `Set-Cookie` can be captured. The body is still searched first, so a regex that matched before captures the same text
+    - A config-file preflight/postflight var with neither a regex nor a source is now a config error instead of failing on every request
+    - A value captured by `-preflight-var` can no longer change the scheme, host or port of a later preflight/postflight request. Those requests inherit the main configuration's headers, so a captured value picking the destination let a scanned target choose where the operator's credentials were sent. Destinations the operator writes in the flight file, including an absolute URL to a separate identity provider, are unaffected: the check only fires when substitution is what moved the request. Pass `-preflight-anyhost` to opt back in for discovery-driven flows, such as reading `token_endpoint` out of `/.well-known/openid-configuration`
+    - `-preflight` and `-postflight` help text now states that these requests inherit the main configuration's headers, including `-H` auth headers and `-b` cookies
+
+- v2.3.0
+  - New
     - Added preflight/postflight requests: raw HTTP request files run before/after each fuzzing request (`-preflight`/`-postflight`), with regex variable extraction (`-preflight-var "NAME:regex"`) injected into the main request, a per-request or amortized per-thread mode (`-preflight-mode`), and abort/ignore error handling (`-preflight-error`)
   - Changed
+    - Security: the response snapshot taken for `-od` and `-audit-log` read the whole response body with no size limit, before the `MAX_DOWNLOAD_SIZE` cap was applied, so a scanned target could exhaust the scanner's memory and disk with a response of its choosing. The body is now bounded before anything reads it, response headers are bounded as well, and `-ignore-body` now also applies to chunked responses. This path was not covered by the fix for CVE-2026-73232
+    - Fix interactive console being scrolled off screen by inflight results
+    - Fix terminal control characters being written to stdout/stderr when they're redirected to a file or pipe
+    - Fix scraper `FromDir` reading the global scraper directory instead of the dirname it was given
+    - Fix concurrency defects in MatcherManager, the recursion queue and the pause gate
+    - Fix autocalibration mutating the caller's input map
+    - Fix Stdoutput result accumulation not being synchronized
+    - Count response words and lines without allocating an intermediate slice
+    - Internal: split `pkg/ffuf` into a kernel plus `pkg/engine`, extract recursion policy into a recursion manager, and move to a declarative flag/config architecture where adding a flag is a single tagged field
+
+- v2.2.1
+  - Changed
+    - Derive the release version from the git tag; builds from a source checkout report `git-<date>-<hash>`
+    - CI: migrate goreleaser to v2, add the tag-triggered release workflow, and pin the GPG signing subkey fingerprint
+
+- v2.2.0
+  - New
+    - Added audit logging functionality
+  - Changed
+    - Security: bound the decompressed response body size to prevent a gzip-bomb OOM (CVE-2026-73232)
     - Fix a bug in autocalibration strategy merging, when two files have the same strategy key
     - Fix a bug in -or, causing output to not to be written in any case
     - Fix panic when setting rate to 0 in the interactive console
-    - Fix terminal control characters being written to stdout/stderr when they're redirected to a file or pipe
-  
+
 - v2.1.0
   - New
     - autocalibration-strategy refactored to support extensible strategy configuration

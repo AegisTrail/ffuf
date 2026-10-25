@@ -21,26 +21,30 @@ func TestAuditLogger(t *testing.T) {
 		t.Errorf("Audit was nil, expected non-nil")
 	}
 
-	defer audit.Close()
-
 	err = os.Chmod(filename, 000)
 	if err != nil {
 		t.Errorf("Error executing Chmod: %s", err)
 	}
 
-	audit, err = NewAuditLogger(filename)
+	reopened, err := NewAuditLogger(filename)
 
 	if err == nil {
 		t.Errorf("Error was nil, expected non-nil")
 	}
 
-	if audit != nil {
+	if reopened != nil {
 		t.Errorf("Audit was non-nil, expected nil")
 	}
 
 	err = os.Chmod(filename, 6550)
 	if err != nil {
 		t.Errorf("Error executing Chmod: %s", err)
+	}
+
+	// Close before removing rather than in a deferred call: Windows refuses to
+	// delete a file that is still open.
+	if audit != nil {
+		audit.Close()
 	}
 
 	err = os.Remove(filename)
@@ -51,7 +55,7 @@ func TestAuditLogger(t *testing.T) {
 }
 
 func TestAuditLogWrite(t *testing.T) {
-	expected := `{"Type":"ffuf.Config","Data":{"auditlog":"","autocalibration":false,"autocalibration_keyword":"","autocalibration_perhost":false,"autocalibration_strategies":null,"autocalibration_strings":null,"colors":false,"cmdline":"","configfile":"","postdata":"{\"quote\":\"I'll still be here tomorrow to high five you yesterday, my friend. Peace.\"}","debuglog":"","delay":{"Min":0,"Max":0,"IsRange":false,"HasDelay":false},"dirsearch_compatibility":false,"encoders":null,"extensions":null,"fmode":"","follow_redirects":false,"headers":{"Content-Type":"application/json","baz":"wibble","foo":"bar"},"ignorebody":false,"ignore_wordlist_comments":false,"inputmode":"","cmd_inputnum":0,"inputproviders":null,"inputshell":"","json":false,"matchers":null,"mmode":"","maxtime":0,"maxtime_job":0,"method":"POST","noninteractive":false,"outputdirectory":"","outputfile":"","outputformat":"","OutputSkipEmptyFile":false,"proxyurl":"","quiet":false,"rate":0,"raw":false,"recursion":false,"recursion_depth":0,"recursion_strategy":"","replayproxyurl":"","requestfile":"","requestproto":"","scraperfile":"","scrapers":"","sni":"","stop_403":false,"stop_all":false,"stop_errors":false,"threads":0,"timeout":0,"url":"http://example.com/aaaa","verbose":false,"wordlists":null,"http2":false,"client-cert":"","client-key":"","preflights":null,"postflights":null,"preflight_mode":"","preflight_error":""}}
+	expected := `{"Type":"ffuf.Config","Data":{"auditlog":"","autocalibration":false,"autocalibration_keyword":"","autocalibration_perhost":false,"autocalibration_strategies":null,"autocalibration_strings":null,"colors":false,"cmdline":"","configfile":"","postdata":"{\"quote\":\"I'll still be here tomorrow to high five you yesterday, my friend. Peace.\"}","debuglog":"","delay":{"Min":0,"Max":0,"IsRange":false,"HasDelay":false},"dirsearch_compatibility":false,"encoders":null,"extensions":null,"fmode":"","follow_redirects":false,"headers":{"Content-Type":"application/json","baz":"wibble","foo":"bar"},"ignorebody":false,"ignore_wordlist_comments":false,"inputmode":"","cmd_inputnum":0,"inputproviders":null,"inputshell":"","json":false,"matchers":null,"mmode":"","maxtime":0,"maxtime_job":0,"method":"POST","noninteractive":false,"outputdirectory":"","outputfile":"","outputformat":"","OutputSkipEmptyFile":false,"proxyurl":"","quiet":false,"rate":0,"raw":false,"recursion":false,"recursion_depth":0,"recursion_strategy":"","replayproxyurl":"","requestfile":"","requestproto":"","scraperfile":"","scrapers":"","sni":"","stop_403":false,"stop_all":false,"stop_errors":false,"threads":0,"timeout":0,"url":"http://example.com/aaaa","verbose":false,"wordlists":null,"http2":false,"client-cert":"","client-key":"","preflights":null,"postflights":null,"preflight_mode":"","preflight_error":"","preflight_anyhost":false}}
 {"Type":"ffuf.Request","Data":{"Method":"POST","Host":"","Url":"http://example.com/aaaa","Headers":{"Content-Type":"application/json","baz":"wibble","foo":"bar"},"Data":"eyJxdW90ZSI6IkknbGwgc3RpbGwgYmUgaGVyZSB0b21vcnJvdyB0byBoaWdoIGZpdmUgeW91IHllc3RlcmRheSwgbXkgZnJpZW5kLiBQZWFjZS4ifQ==","Input":null,"Position":0,"Raw":"","Error":"","Timestamp":"0001-01-01T00:00:00Z"}}
 `
 

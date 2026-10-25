@@ -5,12 +5,31 @@ import (
 	"regexp"
 )
 
-// VarExtract names a variable to capture from a preflight/postflight response
-// using the first capture group of Regex. The captured value is substituted into
-// the keyword Name wherever it appears in later requests.
+// Sources a VarExtract can select a value from by name instead of by regex.
+// VarSourceAuto tries form, meta, cookie and header, in that order.
+const (
+	VarSourceAuto   = "auto"
+	VarSourceForm   = "form"
+	VarSourceMeta   = "meta"
+	VarSourceCookie = "cookie"
+	VarSourceHeader = "header"
+)
+
+// VarSources lists the sources that can be named in a "[source]key" spec, in
+// the order VarSourceAuto tries them.
+var VarSources = []string{VarSourceForm, VarSourceMeta, VarSourceCookie, VarSourceHeader}
+
+// VarExtract names a variable to capture from a preflight/postflight response.
+// The value is either the first capture group of Regex, run against the body and
+// then, if that finds nothing, the headers; or, when Source is set, the form
+// field, meta tag, cookie or header called Key.
+// The captured value is substituted into the keyword Name wherever it appears in
+// later requests.
 type VarExtract struct {
-	Name  string `json:"name" toml:"name"`
-	Regex string `json:"regex" toml:"regex"`
+	Name   string `json:"name" toml:"name"`
+	Regex  string `json:"regex" toml:"regex"`
+	Source string `json:"source,omitempty" toml:"source,omitempty"`
+	Key    string `json:"key,omitempty" toml:"key,omitempty"`
 	// Compiled is the precompiled Regex. ConfigFromOptions sets it once so the hot
 	// path never recompiles per request; nil when a VarExtract is built directly.
 	Compiled *regexp.Regexp `json:"-" toml:"-"`
@@ -91,6 +110,7 @@ type Config struct {
 	Postflights               []PreflightConfig     `json:"postflights"`
 	PreflightMode             string                `json:"preflight_mode"`
 	PreflightError            string                `json:"preflight_error"`
+	PreflightAnyHost          bool                  `json:"preflight_anyhost"`
 	// RateLimitFunc blocks until the shared rate limiter allows another request.
 	// The engine sets it so preflight/postflight requests (sent from the runner,
 	// outside the dispatch loop) also honor -rate and -p. Nil means unmetered.
